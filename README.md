@@ -140,4 +140,4 @@ Contributions are welcome! Please fork this repository, make changes, and submit
 
 Contact
 
-For any inquiries or issues, please contact [your_email@example.com].
+For any inquiries or issues, please contact [nagulakondakarthikeya@gmail.com].
