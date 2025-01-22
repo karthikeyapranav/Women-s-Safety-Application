@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Women Safety-Application</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            margin: 20px;
+        }
+
+        .toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 20px;
+            padding: 5px 15px;
+            width: 100px;
+            cursor: pointer;
+        }
+
+        .toggle-btn.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+        .toggle-btn span {
+            font-size: 14px;
+        }
+
+        .timer-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #0d6efd;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #timerDisplay,
+        #audioTimerDisplay {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Women's Safity :] </h1>
+
+        <form id="recordForm">
+            <div class="mb-3">
+                <label for="time" class="form-label">Timer (in minutes):</label>
+                <input type="number" id="time" class="form-control" placeholder="Set timer in minutes" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="recording_duration" class="form-label">Audio Recording Duration (in minutes):</label>
+                <input type="number" id="recording_duration" class="form-control" placeholder="Duration in minutes" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="user_email" class="form-label">Your Email:</label>
+                <input type="email" id="user_email" class="form-control" placeholder="Enter your email" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="user_password" class="form-label">Your Email Password:</label>
+                <input type="password" id="user_password" class="form-control" placeholder="Enter your email password" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="emergency_email" class="form-label">Emergency Email(s):</label>
+                <input type="text" id="emergency_email" class="form-control" placeholder="Enter emergency email(s), comma-separated" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Enable Video Recording:</label>
+                <div class="toggle-btn" id="videoToggle">
+                    <span>OFF</span>
+                </div>
+                <input type="hidden" id="record_video" value="false">
+            </div>
+
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary">Start Recording</button>
+                <button type="button" id="deactivate" class="btn btn-danger">Stop Recording</button>
+            </div>
+        </form>
+
+        <!-- Timer Countdown -->
+        <div id="timerDisplay" class="timer-display d-none">Main Timer: 0:00 remaining</div>
+        <div id="audioTimerDisplay" class="timer-display d-none">Audio Timer: 0:00 remaining</div>
+
+        <div id="statusMessage" class="mt-3"></div>
+    </div>
+
+    <!-- Include Google Maps JavaScript API -->
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
+
+<div id="map" style="height: 400px; width: 100%; margin-top: 20px;"></div>
+
+<script>
+    $(document).ready(function () {
+        let map;
+        let marker;
+
+        function initializeMap(latitude, longitude) {
+            const location = { lat: latitude, lng: longitude };
+            const mapOptions = {
+                center: location,
+                zoom: 15,
+            };
+
+            map = new google.maps.Map(document.getElementById('map'), mapOptions);
+
+            marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                title: 'Your Location',
+            });
+        }
+
+        // Handle toggle button for video recording
+        $('#videoToggle').click(function () {
+            const toggle = $(this);
+            const isActive = toggle.hasClass('active');
+            if (isActive) {
+                toggle.removeClass('active').find('span').text('OFF');
+                $('#record_video').val('false');
+            } else {
+                toggle.addClass('active').find('span').text('ON');
+                $('#record_video').val('true');
+            }
+        });
+
+        // Form submission for starting recording
+        $('#recordForm').submit(function (e) {
+            e.preventDefault();
+
+            const time = $('#time').val();
+            const recording_duration = $('#recording_duration').val();
+            const user_email = $('#user_email').val();
+            const user_password = $('#user_password').val();
+            const emergency_email = $('#emergency_email').val();
+            const record_video = $('#record_video').val();
+
+            // Get the user's current location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+
+                    // Initialize the map
+                    initializeMap(latitude, longitude);
+
+                    // Send the data including the location to the server
+                    $.ajax({
+                        url: '/set_timer',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            time: time,
+                            recording_duration: recording_duration,
+                            user_email: user_email,
+                            user_password: user_password,
+                            emergency_email: emergency_email,
+                            record_video: record_video,
+                            latitude: latitude,
+                            longitude: longitude
+                        }),
+                        success: function (response) {
+                            $('#statusMessage').html(`<div class="alert alert-success">${response.message}</div>`);
+
+                            // Start the main timer countdown
+                            startMainTimer(time * 60, recording_duration * 60, record_video); // Convert minutes to seconds
+                        },
+                        error: function (xhr) {
+                            $('#statusMessage').html(`<div class="alert alert-danger">${xhr.responseJSON.message}</div>`);
+                        }
+                    });
+                }, function() {
+                    alert('Geolocation failed or denied. Proceeding without location.');
+                });
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        });
+
+        // Timer countdown functions
+        function startMainTimer(duration, audioDuration, activateCamera) {
+            let remainingTime = duration;
+            $('#timerDisplay').removeClass('d-none').text(`Main Timer: ${formatTime(remainingTime)} remaining`);
+
+            mainTimerInterval = setInterval(function () {
+                remainingTime -= 1;
+                $('#timerDisplay').text(`Main Timer: ${formatTime(remainingTime)} remaining`);
+
+                if (remainingTime <= 0) {
+                    clearInterval(mainTimerInterval);
+                    $('#timerDisplay').addClass('d-none');
+
+                    if (activateCamera === 'true') {
+                        startAudioTimer(audioDuration);
+                    } else {
+                        startAudioTimer(audioDuration);
+                    }
+                }
+            }, 1000);
+        }
+
+        function startAudioTimer(duration) {
+            let remainingTime = duration;
+            $('#audioTimerDisplay').removeClass('d-none').text(`Audio Timer: ${formatTime(remainingTime)} remaining`);
+
+            audioTimerInterval = setInterval(function () {
+                remainingTime -= 1;
+                $('#audioTimerDisplay').text(`Audio Timer: ${formatTime(remainingTime)} remaining`);
+
+                if (remainingTime <= 0) {
+                    clearInterval(audioTimerInterval);
+                    $('#audioTimerDisplay').addClass('d-none');
+                }
+            }, 1000);
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+    });
+</script>
+
+    
+</body>
+</html>
